@@ -9,6 +9,28 @@ import PropTypes from "prop-types";
 const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 const socket = io(socketUrl);
 
+// Add Pokemon type colors
+const typeColors = {
+  normal: "#A8A878",
+  fire: "#F08030",
+  water: "#6890F0",
+  electric: "#F8D030",
+  grass: "#78C850",
+  ice: "#98D8D8",
+  fighting: "#C03028",
+  poison: "#A040A0",
+  ground: "#E0C068",
+  flying: "#A890F0",
+  psychic: "#F85888",
+  bug: "#A8B820",
+  rock: "#B8A038",
+  ghost: "#705898",
+  dragon: "#7038F8",
+  dark: "#705848",
+  steel: "#B8B8D0",
+  fairy: "#EE99AC",
+};
+
 const PokemonCardPropTypes = {
   pokemon: PropTypes.shape({
     name: PropTypes.string.isRequired,
@@ -35,13 +57,13 @@ const PokemonCardGen = () => {
     currentRound: 1,
     currentPicker: "",
     myId: "",
-    winners: [], // non-empty means the game is over
+    winners: [],
     selectedStat: null,
-    // The rounds-to-win setting is configurable by the admin in the waiting room
     gameSettings: {
       roundsToWin: 3,
     },
-    gameStatus: "setup", // setup, playing
+    gameStatus: "setup",
+    gameEnded: false, // Add this field
   });
 
   const [playerName, setPlayerName] = useState("");
@@ -97,15 +119,14 @@ const PokemonCardGen = () => {
       setGamePhase("playing");
     });
 
-    socket.on("roundComplete", ({ gameWinners, stat, players }) => {
-      // Update state with fresh scores and winner info.
+    socket.on("roundComplete", ({ gameWinners, stat, players, gameEnded }) => {
       setGameState((state) => ({
         ...state,
         winners: gameWinners,
         selectedStat: stat,
         players,
+        gameEnded: gameEnded, // Update from server
       }));
-      // Do not change phase here—instead, the playing view will now show the end-of-match options.
     });
 
     socket.on("gameReset", () => {
@@ -239,58 +260,93 @@ const PokemonCardGen = () => {
   // In the playing phase, cards are revealed if a stat is selected or if winners exist.
   const PokemonCard = ({ pokemon, isRevealed, isPicker }) => {
     if (!pokemon) return null;
+
     const displayPokemon = isRevealed
       ? pokemon
       : {
           ...pokemon,
-          sprite: "/card-back.png",
+          sprite: "/pokeball.png",
           name: "???",
           hp: "?",
           stats: { attack: "?", defense: "?", speed: "?" },
+          type: "normal", // Default type for card back
         };
+
+    const typeColor =
+      typeColors[displayPokemon.type?.toLowerCase() || "normal"];
+
     return (
-      <Card className="w-64 bg-white rounded-lg shadow-lg overflow-hidden">
+      <Card className="w-72 bg-white rounded-xl shadow-xl overflow-hidden transform transition-transform duration-200 hover:scale-105">
         <div className="relative">
-          <div className="absolute top-2 right-2 bg-white rounded-full px-2 py-1 text-sm">
-            HP {displayPokemon.hp}
-          </div>
-          <img
-            src={displayPokemon.sprite}
-            alt={displayPokemon.name}
-            className="w-full h-48 object-contain bg-gray-100"
+          {/* Type-based background bubble */}
+          <div
+            className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full opacity-30"
+            style={{ backgroundColor: typeColor }}
           />
+
+          {/* HP Badge */}
+          {/* <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg">
+            <span className="text-sm font-bold text-gray-800">HP</span>
+            <span className="ml-1 text-lg font-bold text-indigo-600">
+              {displayPokemon.hp}
+            </span>
+          </div> */}
+
+          {/* Pokemon Image */}
+          <div className="relative h-48 flex items-center justify-center">
+            <img
+              src={displayPokemon.sprite}
+              alt={displayPokemon.name}
+              className={`h-40 ${
+                isRevealed ? "object-contain" : "object-cover opacity-70 mt-12"
+              }`}
+            />
+          </div>
         </div>
-        <CardHeader className="text-xl font-bold text-center capitalize">
+
+        <CardHeader className="text-xl font-bold text-center capitalize py-2 bg-gradient-to-r from-gray-50 to-white">
           {displayPokemon.name}
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+
+        <CardContent className="p-4 py-0">
+          <div className="grid grid-cols-2 gap-3">
             {[
-              { key: "hp", label: "HP", value: displayPokemon.hp },
+              {
+                key: "hp",
+                label: "HP",
+                value: displayPokemon.hp,
+                color: "red",
+              },
               {
                 key: "attack",
                 label: "ATK",
                 value: displayPokemon.stats.attack,
+                color: "orange",
               },
               {
                 key: "defense",
                 label: "DEF",
                 value: displayPokemon.stats.defense,
+                color: "blue",
               },
-              { key: "speed", label: "SPD", value: displayPokemon.stats.speed },
+              {
+                key: "speed",
+                label: "SPD",
+                value: displayPokemon.stats.speed,
+                color: "green",
+              },
             ].map(({ key, label, value }) => (
               <Button
                 key={key}
                 onClick={() => handleStatSelect(key)}
                 disabled={!isPicker || gameState.selectedStat}
-                className={`p-3 rounded-md w-full ${
-                  gameState.selectedStat === key
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-200 text-white"
-                }`}
+                className={`relative overflow-hidden transition-all duration-200 shadow`}
+                style={{
+                  backgroundColor: "white",
+                }}
               >
-                <div className="text-xl font-bold">{value}</div>
-                <div className="text-sm">{label}</div>
+                <div className={`text-xl font-bold text-black`}>{value}</div>
+                <div className={`text-sm text-black`}>{label}</div>
               </Button>
             ))}
           </div>
@@ -301,38 +357,120 @@ const PokemonCardGen = () => {
 
   PokemonCard.propTypes = PokemonCardPropTypes;
 
+  // Separate controlled input handlers
+  const handleNameChange = (e) => {
+    e.preventDefault(); // Prevent any default browser behavior
+    const value = e.target.value;
+    if (value.length <= 20) {
+      // Handle max length in the handler
+      setPlayerName(value);
+    }
+  };
+
+  const handleJoinCodeChange = (e) => {
+    e.preventDefault();
+    const value = e.target.value.toUpperCase();
+    setJoinCode(value);
+  };
+
+  const PageContainer = ({ children, className = "" }) => (
+    <div
+      className={`min-h-screen bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4 ${className}`}
+    >
+      <div className="w-full max-w-md">{children}</div>
+    </div>
+  );
+
+  // Added propTypes for PageContainer
+  PageContainer.propTypes = {
+    children: PropTypes.node.isRequired,
+    className: PropTypes.string,
+  };
+
+  // Modified player display component
+  const PlayerScore = ({ player, isWinner }) => (
+    <div className="text-center mb-6">
+      <div
+        className={`rounded-xl p-4 ${
+          isWinner
+            ? "bg-gradient-to-r from-yellow-100 to-yellow-50"
+            : "bg-gradient-to-r from-gray-50 to-white"
+        }`}
+      >
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <span className="text-xl font-bold text-gray-800">{player.name}</span>
+          {isWinner && <Crown className="text-yellow-500 h-5 w-5" />}
+        </div>
+        <div className="text-sm font-medium text-gray-600">
+          Score: {player.score}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Added propTypes for PlayerScore
+  PlayerScore.propTypes = {
+    player: PropTypes.shape({
+      name: PropTypes.string.isRequired,
+      score: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
+        .isRequired,
+    }).isRequired,
+    isWinner: PropTypes.bool.isRequired,
+  };
+
   // ---------- Render Phases ----------
 
   // 1. Name Entry Phase
   if (gamePhase === "name-entry") {
     return (
-      <div className="container mx-auto p-4 max-w-md">
-        <Card className="p-6">
-          <CardHeader>
-            <h2 className="text-2xl font-bold text-center">
-              Welcome to Pokémon Stat Battle
-            </h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleNameSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  className="w-full p-2 border rounded"
-                  placeholder="Enter your name"
+      <div className="min-h-screen bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <img
+              src="/logo.png"
+              alt="Pokemon Logo"
+              className="mx-auto mb-4 h-32"
+            />
+          </div>
+
+          <div className="bg-white rounded-lg shadow-2xl p-8 transform hover:scale-105 transition-transform duration-300">
+            <form onSubmit={handleNameSubmit} className="space-y-6">
+              <div className="relative">
+                <img
+                  src="/pokeball.png"
+                  alt="Pokeball"
+                  className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
                 />
+                <h2 className="text-2xl font-bold text-center mt-4 mb-6">
+                  Choose Your Trainer Name!
+                </h2>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={handleNameChange}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                    placeholder="Enter your name"
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
+                    {playerName.length}/20
+                  </div>
+                </div>
               </div>
-              <Button type="submit" className="w-full">
-                Continue
+              <Button
+                type="submit"
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold text-lg"
+              >
+                Start Your Journey!
               </Button>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="mt-6 text-center">
+            <p className="text-white text-sm">
+              Ready to become a Pokémon Master?
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -340,40 +478,56 @@ const PokemonCardGen = () => {
   // 2. Room Choice Phase
   if (gamePhase === "room-choice") {
     return (
-      <div className="container mx-auto p-4 max-w-md">
-        <Card className="p-6">
-          <CardHeader>
-            <h2 className="text-2xl font-bold text-center">Hi {playerName}!</h2>
-            <p className="text-center text-gray-600">
-              Choose an option to play
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button onClick={createRoom} className="w-full">
-              Create New Room
-            </Button>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">OR</span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                className="w-full p-2 border rounded"
-                placeholder="Enter room code"
+      <div className="min-h-screen bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-2xl p-8">
+            <div className="text-center mb-6">
+              <img
+                src="/pokeball.png"
+                alt="Pokeball"
+                className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
               />
-              <Button onClick={joinRoom} className="w-full">
-                Join Room
-              </Button>
+              <h2 className="text-2xl font-bold">
+                Welcome, Trainer {playerName}!
+              </h2>
+              <p className="text-gray-600 mt-2">Choose your next move</p>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="space-y-6">
+              <Button
+                onClick={createRoom}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+              >
+                Create New Battle Room
+              </Button>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 bg-white text-gray-500">OR</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={handleJoinCodeChange}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                  placeholder="Enter room code"
+                />
+                <Button
+                  onClick={joinRoom}
+                  className="w-full bg-black hover:bg-gray-800 text-white py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+                >
+                  Join Battle Room
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -384,136 +538,177 @@ const PokemonCardGen = () => {
       (p) => p.id === gameState.myId
     )?.isCreator;
     return (
-      <div className="container mx-auto p-4 text-center">
-        <Card className="p-6">
-          <CardHeader>
-            <h2 className="text-2xl font-bold">
-              Welcome to Room {gameState.roomCode}
-            </h2>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center gap-2">
-              <span>Room Code: {gameState.roomCode}</span>
-              <Button onClick={copyRoomCode} variant="outline" size="icon">
-                <Copy className="h-4 w-4" />
+      <PageContainer>
+        <div className="bg-white rounded-lg shadow-2xl p-8">
+          <div className="text-center mb-6">
+            <img
+              src="/pokeball.png"
+              alt="Pokeball"
+              className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
+            />
+            <h2 className="text-2xl font-bold mb-2">Battle Room</h2>
+            <div className="flex items-center justify-center gap-2 bg-gray-100 py-2 px-4 rounded-lg">
+              <span className="font-medium">
+                Room Code: {gameState.roomCode}
+              </span>
+              <Button
+                onClick={copyRoomCode}
+                variant="outline"
+                size="icon"
+                className="hover:bg-gray-200"
+              >
+                <Copy className="h-3 w-3 text-white" />
               </Button>
             </div>
-            <div className="space-y-2">
-              <h3 className="font-medium">Players:</h3>
-              {gameState.players.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex items-center justify-between py-2 px-4 bg-gray-50 rounded"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{player.name}</span>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-bold text-lg mb-3">Trainers:</h3>
+              <div className="space-y-2">
+                {gameState.players.map((player) => (
+                  <div
+                    key={player.id}
+                    className="flex items-center justify-between gap-2 py-3 px-4 bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <img
+                        src="/trainer.png"
+                        alt="Trainer"
+                        className="w-8 h-8"
+                      />
+                      <span className="font-medium">{player.name}</span>
+                    </div>
                     {player.isCreator && (
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                        Admin
+                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                        Gym Leader
                       </span>
                     )}
                   </div>
-                </div>
-              ))}
-            </div>
-            {/* Admin can update rounds-to-win and start game; also all can leave */}
-            <div className="flex flex-col gap-4">
-              {isCreator && gameState.players.length > 1 && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Rounds to Win:
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={gameState.gameSettings.roundsToWin}
-                      onChange={updateRoundsToWin}
-                      className="w-full p-2 border rounded"
-                    />
-                  </div>
-                  <Button onClick={startGame} className="w-full">
-                    Start Game
-                  </Button>
-                </>
-              )}
-              <Button onClick={handleLeaveRoom} variant="destructive">
-                Leave Room
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // 4. Playing Phase (Integrated End-of-Match Display)
-  // In this view, if gameState.winners is non-empty, all cards are revealed and the winning card(s)
-  // are highlighted. Additionally, two buttons are shown at the bottom: one to go back to room (waiting room)
-  // and one to leave the room.
-  if (gamePhase === "playing") {
-    // gameEnded is true if any player's score is >= roundsToWin.
-    const gameEnded = gameState.players.some(
-      (p) => p.score >= gameState.gameSettings.roundsToWin
-    );
-
-    return (
-      <div className="container mx-auto p-4">
-        <div className="text-center mb-4">
-          <div className="text-xl font-bold">
-            Round {gameState.currentRound}
-          </div>
-          <div className="text-gray-600">
-            {gameState.currentPicker === gameState.myId
-              ? "You're the picker! Select a stat."
-              : `Waiting for ${
-                  gameState.players.find(
-                    (p) => p.id === gameState.currentPicker
-                  )?.name || "next player"
-                } to pick...`}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-8 justify-center">
-          {gameState.players.map((player) => (
-            <div key={player.id} className="text-center">
-              <div
-                className={`mb-2 ${
-                  gameEnded &&
-                  player.score >= gameState.gameSettings.roundsToWin
-                    ? "font-bold"
-                    : ""
-                }`}
-              >
-                {player.name} (Score: {player.score})
-                {gameEnded &&
-                  player.score >= gameState.gameSettings.roundsToWin && (
-                    <Crown className="inline ml-2 text-yellow-500" />
-                  )}
+                ))}
               </div>
-              <PokemonCard
-                pokemon={player.pokemon}
-                // Reveal card if it's your own, a stat was selected, or the game has ended
-                isRevealed={
-                  player.id === gameState.myId ||
-                  gameState.selectedStat ||
-                  gameEnded
-                }
-                isPicker={player.id === gameState.currentPicker}
-              />
             </div>
-          ))}
-        </div>
 
-        {/* When the game is over, show options to return to room or leave */}
-        {gameEnded && (
-          <div className="flex gap-4 justify-center mt-8">
-            <Button onClick={goBackToRoom}>Go Back to Room</Button>
-            <Button onClick={handleLeaveRoom} variant="destructive">
+            {isCreator && gameState.players.length > 1 && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Rounds to Win Championship:
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={gameState.gameSettings.roundsToWin}
+                    onChange={(e) => {
+                      const value = Math.max(
+                        1,
+                        Math.min(10, parseInt(e.target.value) || 1)
+                      );
+                      updateRoundsToWin({ target: { value } });
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                  />
+                </div>
+                <Button
+                  onClick={startGame}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+                >
+                  Start Battle!
+                </Button>
+              </div>
+            )}
+
+            <Button
+              onClick={handleLeaveRoom}
+              variant="destructive"
+              className="w-full py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+            >
               Leave Room
             </Button>
           </div>
-        )}
+        </div>
+      </PageContainer>
+    );
+  }
+
+  // 4. Playing Phase
+  if (gamePhase === "playing") {
+    const gameOver = gameState.gameEnded;
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-red-600 to-red-700 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-white rounded-lg shadow-2xl p-6 mb-8">
+            <div className="text-center mb-6">
+              <img
+                src="/pokeball.png"
+                alt="Pokeball"
+                className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
+              />
+              <div className="text-2xl font-bold mb-2">
+                {gameOver ? "Game Over!" : `Round ${gameState.currentRound}`}
+              </div>
+              {!gameOver && (
+                <div className="text-gray-600">
+                  {gameState.currentPicker === gameState.myId
+                    ? "You're the picker! Select a stat to battle with."
+                    : `Waiting for ${
+                        gameState.players.find(
+                          (p) => p.id === gameState.currentPicker
+                        )?.name || "next player"
+                      } to choose...`}
+                </div>
+              )}
+              {gameOver && gameState.winners.length > 0 && (
+                <div className="text-xl text-red-600 font-bold mt-4">
+                  {
+                    gameState.players.find((p) => p.id === gameState.winners[0])
+                      ?.name
+                  }{" "}
+                  wins the championship!
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-8 justify-center">
+              {gameState.players.map((player) => (
+                <div key={player.id} className="text-center">
+                  <PlayerScore
+                    player={player}
+                    isWinner={gameState.winners.includes(player.id)}
+                  />
+                  <PokemonCard
+                    pokemon={player.pokemon}
+                    isRevealed={
+                      player.id === gameState.myId ||
+                      gameState.selectedStat ||
+                      gameOver
+                    }
+                    isPicker={player.id === gameState.currentPicker}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {gameOver && (
+              <div className="flex gap-4 justify-center mt-8">
+                <Button
+                  onClick={goBackToRoom}
+                  className="bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+                >
+                  Back to Battle Room
+                </Button>
+                <Button
+                  onClick={handleLeaveRoom}
+                  className="bg-black hover:bg-gray-800 text-white py-3 px-6 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+                >
+                  Leave Battle
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

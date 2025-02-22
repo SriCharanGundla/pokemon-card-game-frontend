@@ -5,6 +5,12 @@ import path from "path";
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    port: process.env.VITE_PORT || 5173, // fallback to default port if not set
+  },
+  preview: {
+    port: process.env.VITE_PORT || 5173,
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
