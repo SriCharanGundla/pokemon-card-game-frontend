@@ -31,6 +31,21 @@ const typeColors = {
   fairy: "#EE99AC",
 };
 
+const medalColors = {
+  gold: {
+    crown: "#FFD700",
+    background: "from-yellow-100 to-yellow-50",
+  },
+  silver: {
+    crown: "#C0C0C0",
+    background: "from-gray-200 to-gray-50",
+  },
+  bronze: {
+    crown: "#CD7F32",
+    background: "from-orange-100 to-orange-50",
+  },
+};
+
 const PokemonCardPropTypes = {
   pokemon: PropTypes.shape({
     name: PropTypes.string.isRequired,
@@ -61,9 +76,10 @@ const PokemonCardGen = () => {
     selectedStat: null,
     gameSettings: {
       roundsToWin: 3,
+      maxWinners: 1, // Add this new setting
     },
     gameStatus: "setup",
-    gameEnded: false, // Add this field
+    gameEnded: false,
   });
 
   const [playerName, setPlayerName] = useState("");
@@ -235,7 +251,7 @@ const PokemonCardGen = () => {
   };
 
   const goBackToRoom = () => {
-    // Return to waiting room without leaving
+    resetGameState();
     setGamePhase("in-room");
   };
 
@@ -255,6 +271,17 @@ const PokemonCardGen = () => {
   const copyRoomCode = () => {
     navigator.clipboard.writeText(gameState.roomCode);
     toast("Room code copied to clipboard");
+  };
+
+  const updateGameSettings = (setting, value) => {
+    setGameState((state) => ({
+      ...state,
+      gameSettings: { ...state.gameSettings, [setting]: value },
+    }));
+    socket.emit("updateSettings", {
+      roomCode: gameState.roomCode,
+      settings: { [setting]: value },
+    });
   };
 
   // In the playing phase, cards are revealed if a stat is selected or if winners exist.
@@ -373,6 +400,23 @@ const PokemonCardGen = () => {
     setJoinCode(value);
   };
 
+  const resetGameState = () => {
+    setGameState((state) => ({
+      ...state,
+      currentRound: 1,
+      currentPicker: "",
+      winners: [],
+      selectedStat: null,
+      gameStatus: "setup",
+      gameEnded: false,
+      players: state.players.map((player) => ({
+        ...player,
+        score: 0,
+        pokemon: null,
+      })),
+    }));
+  };
+
   const PageContainer = ({ children, className = "" }) => (
     <div
       className={`min-h-screen bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4 ${className}`}
@@ -388,34 +432,52 @@ const PokemonCardGen = () => {
   };
 
   // Modified player display component
-  const PlayerScore = ({ player, isWinner }) => (
-    <div className="text-center mb-6">
-      <div
-        className={`rounded-xl p-4 ${
-          isWinner
-            ? "bg-gradient-to-r from-yellow-100 to-yellow-50"
-            : "bg-gradient-to-r from-gray-50 to-white"
-        }`}
-      >
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <span className="text-xl font-bold text-gray-800">{player.name}</span>
-          {isWinner && <Crown className="text-yellow-500 h-5 w-5" />}
-        </div>
-        <div className="text-sm font-medium text-gray-600">
-          Score: {player.score}
+  const PlayerScore = ({ player, winnerRank }) => {
+    let medalStyle = null;
+    if (winnerRank === 0) {
+      medalStyle = medalColors.gold;
+    } else if (winnerRank === 1) {
+      medalStyle = medalColors.silver;
+    } else if (winnerRank === 2) {
+      medalStyle = medalColors.bronze;
+    }
+
+    return (
+      <div className="text-center mb-6">
+        <div
+          className={`rounded-xl p-4 ${
+            medalStyle
+              ? `bg-gradient-to-r ${medalStyle.background}`
+              : "bg-gradient-to-r from-gray-50 to-white"
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <span className="text-xl font-bold text-gray-800">
+              {player.name}
+            </span>
+            {medalStyle && (
+              <Crown
+                className={`h-5 w-5`}
+                style={{ color: medalStyle.crown }}
+              />
+            )}
+          </div>
+          <div className="text-sm font-medium text-gray-600">
+            Score: {player.score}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  // Added propTypes for PlayerScore
+  // Update PropTypes
   PlayerScore.propTypes = {
     player: PropTypes.shape({
       name: PropTypes.string.isRequired,
       score: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
         .isRequired,
     }).isRequired,
-    isWinner: PropTypes.bool.isRequired,
+    winnerRank: PropTypes.number,
   };
 
   // ---------- Render Phases ----------
@@ -537,6 +599,9 @@ const PokemonCardGen = () => {
     const isCreator = gameState.players.find(
       (p) => p.id === gameState.myId
     )?.isCreator;
+    const playerCount = gameState.players.length;
+    const maxAllowedWinners = Math.min(playerCount - 1, 3);
+
     return (
       <PageContainer>
         <div className="bg-white rounded-lg shadow-2xl p-8">
@@ -610,6 +675,34 @@ const PokemonCardGen = () => {
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Number of Winners (max {maxAllowedWinners}):
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max={maxAllowedWinners}
+                    value={Math.min(
+                      gameState.gameSettings.maxWinners,
+                      maxAllowedWinners
+                    )}
+                    onChange={(e) => {
+                      const value = Math.max(
+                        1,
+                        Math.min(
+                          maxAllowedWinners,
+                          parseInt(e.target.value) || 1
+                        )
+                      );
+                      updateGameSettings("maxWinners", value);
+                    }}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Maximum winners is limited by player count
+                  </p>
+                </div>
                 <Button
                   onClick={startGame}
                   className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
@@ -635,6 +728,7 @@ const PokemonCardGen = () => {
   // 4. Playing Phase
   if (gamePhase === "playing") {
     const gameOver = gameState.gameEnded;
+    const inTieBreaker = gameState.inTieBreaker;
 
     return (
       <div className="min-h-screen bg-gradient-to-b from-red-600 to-red-700 p-6">
@@ -647,48 +741,62 @@ const PokemonCardGen = () => {
                 className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
               />
               <div className="text-2xl font-bold mb-2">
-                {gameOver ? "Game Over!" : `Round ${gameState.currentRound}`}
+                {gameOver
+                  ? "Game Over!"
+                  : inTieBreaker
+                  ? "Tie Breaker!"
+                  : `Round ${gameState.currentRound}`}
               </div>
               {!gameOver && (
                 <div className="text-gray-600">
-                  {gameState.currentPicker === gameState.myId
-                    ? "You're the picker! Select a stat to battle with."
-                    : `Waiting for ${
-                        gameState.players.find(
-                          (p) => p.id === gameState.currentPicker
-                        )?.name || "next player"
-                      } to choose...`}
-                </div>
-              )}
-              {gameOver && gameState.winners.length > 0 && (
-                <div className="text-xl text-red-600 font-bold mt-4">
-                  {
-                    gameState.players.find((p) => p.id === gameState.winners[0])
-                      ?.name
-                  }{" "}
-                  wins the championship!
+                  {inTieBreaker ? (
+                    <span>Tie breaker in progress for tied players...</span>
+                  ) : gameState.currentPicker === gameState.myId ? (
+                    "You're the picker! Select a stat to battle with."
+                  ) : (
+                    `Waiting for ${
+                      gameState.players.find(
+                        (p) => p.id === gameState.currentPicker
+                      )?.name || "next player"
+                    } to choose...`
+                  )}
                 </div>
               )}
             </div>
 
             <div className="flex flex-wrap gap-8 justify-center">
-              {gameState.players.map((player) => (
-                <div key={player.id} className="text-center">
-                  <PlayerScore
-                    player={player}
-                    isWinner={gameState.winners.includes(player.id)}
-                  />
-                  <PokemonCard
-                    pokemon={player.pokemon}
-                    isRevealed={
-                      player.id === gameState.myId ||
-                      gameState.selectedStat ||
-                      gameOver
-                    }
-                    isPicker={player.id === gameState.currentPicker}
-                  />
-                </div>
-              ))}
+              {gameState.players.map((player) => {
+                const winnerIndex = gameState.winners.indexOf(player.id);
+                const isWinner = winnerIndex !== -1;
+                const isActive =
+                  !isWinner &&
+                  (!inTieBreaker ||
+                    gameState.tieBreakPlayers.includes(player.id));
+
+                return (
+                  <div
+                    key={player.id}
+                    className={`text-center ${!isActive ? "opacity-50" : ""}`}
+                  >
+                    <PlayerScore
+                      player={player}
+                      winnerRank={isWinner ? winnerIndex : undefined}
+                    />
+                    <PokemonCard
+                      pokemon={player.pokemon}
+                      isRevealed={
+                        player.id === gameState.myId ||
+                        gameState.selectedStat ||
+                        gameOver ||
+                        isWinner
+                      }
+                      isPicker={
+                        player.id === gameState.currentPicker && !isWinner
+                      }
+                    />
+                  </div>
+                );
+              })}
             </div>
 
             {gameOver && (
