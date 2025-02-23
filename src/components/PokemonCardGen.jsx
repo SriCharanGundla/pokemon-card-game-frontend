@@ -130,7 +130,8 @@ const PokemonCardGen = () => {
         players: newGameState.players,
         gameStatus: "playing",
         selectedStat: null,
-        winners: [], // clear winners at new round start
+        // Remove or comment out the following line:
+        // winners: [] // clear winners at new round start
       }));
       setGamePhase("playing");
     });
@@ -612,7 +613,7 @@ const PokemonCardGen = () => {
               className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
             />
             <h2 className="text-2xl font-bold mb-2">Battle Room</h2>
-            <div className="flex items-center justify-center gap-2 bg-gray-100 py-2 px-4 rounded-lg">
+            <div className="flex items-center justify-center gap-2 bg-gray-100 py-2 px-4 rounded-lg mx-6">
               <span className="font-medium">
                 Room Code: {gameState.roomCode}
               </span>
@@ -620,9 +621,9 @@ const PokemonCardGen = () => {
                 onClick={copyRoomCode}
                 variant="outline"
                 size="icon"
-                className="hover:bg-gray-200"
+                className="hover:bg-gray-200 h-7 w-7"
               >
-                <Copy className="h-3 w-3 text-white" />
+                <Copy className="h-4 w-4 text-white" />
               </Button>
             </div>
           </div>
