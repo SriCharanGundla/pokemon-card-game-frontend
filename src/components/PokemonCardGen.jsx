@@ -89,7 +89,11 @@ const PokemonCardGen = () => {
     // Set up socket listeners
     socket.on("error", (message) => {
       toast.error(message);
-      setGamePhase("name-entry");
+
+      // Only go back to name-entry for errors other than "Room not found"
+      if (message !== "Room not found") {
+        setGamePhase("name-entry");
+      }
     });
 
     socket.on("connect", () => {
@@ -156,8 +160,12 @@ const PokemonCardGen = () => {
       }));
     });
 
-    socket.on("playerLeft", ({ players }) => {
+    socket.on("playerLeft", ({ players, leftPlayer }) => {
       setGameState((state) => ({ ...state, players }));
+
+      if (leftPlayer) {
+        toast.info(`${leftPlayer.name} left the room`);
+      }
     });
 
     return () => {
