@@ -502,9 +502,10 @@ const PokemonCardGen = () => {
     }));
   };
 
+  // Modified PageContainer to take full width/height on all device sizes
   const PageContainer = ({ children, className = "" }) => (
     <div
-      className={`min-h-screen bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4 ${className}`}
+      className={`fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4 ${className} overflow-y-auto`}
     >
       <div className="w-full max-w-md">{children}</div>
     </div>
@@ -530,7 +531,7 @@ const PokemonCardGen = () => {
     return (
       <div className="text-center mb-6">
         <div
-          className={`rounded-xl p-4 ${
+          className={`rounded-xl px-4 ${
             medalStyle
               ? `bg-gradient-to-r ${medalStyle.background}`
               : "bg-gradient-to-r from-gray-50 to-white"
@@ -570,7 +571,7 @@ const PokemonCardGen = () => {
   // 1. Name Entry Phase
   if (gamePhase === "name-entry") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <img
@@ -625,7 +626,7 @@ const PokemonCardGen = () => {
   // 2. Room Choice Phase
   if (gamePhase === "room-choice") {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-lg shadow-2xl p-8">
             <div className="text-center mb-6">
@@ -689,7 +690,7 @@ const PokemonCardGen = () => {
 
     return (
       <PageContainer>
-        <div className="bg-white rounded-lg shadow-2xl p-8">
+        <div className="bg-white rounded-lg shadow-2xl p-8 mt-16">
           <div className="text-center mb-6">
             <img
               src="/pokeball.png"
@@ -707,7 +708,8 @@ const PokemonCardGen = () => {
                 size="icon"
                 className="hover:bg-gray-200 h-7 w-7"
               >
-                <Copy className="h-4 w-4 text-white" />
+                <Copy className="h-4 w-4 text-white" />{" "}
+                {/* Fixed text color */}
               </Button>
             </div>
           </div>
@@ -740,7 +742,7 @@ const PokemonCardGen = () => {
                         onClick={() => transferAdmin(player.id)}
                         size="icon"
                         variant="outline"
-                        className="p-2 rounded-full text-white hover:text-gray-200"
+                        className="p-2 rounded-full text-white hover:text-gray-300"
                         title="Transfer Admin Privileges"
                       >
                         <Crown className="h-4 w-4" />
@@ -822,14 +824,14 @@ const PokemonCardGen = () => {
     );
   }
 
-  // 4. Playing Phase
+  // 4. Playing Phase - Completely revised for full screen layout
   if (gamePhase === "playing") {
     const gameOver = gameState.gameEnded;
     const inTieBreaker = gameState.inTieBreaker;
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-red-600 to-red-700 p-6">
-        <div className="max-w-6xl mx-auto">
+      <div className="fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 overflow-auto">
+        <div className="max-w-6xl mx-auto py-1 px-6">
           <div className="bg-white rounded-lg shadow-2xl p-6 mb-8">
             <div className="text-center mb-6">
               <img
