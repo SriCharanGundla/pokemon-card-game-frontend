@@ -531,22 +531,22 @@ const PokemonCardGen = () => {
     return (
       <div className="text-center mb-6">
         <div
-          className={`rounded-xl px-4 ${
+          className={`rounded-xl px-4 py-2 ${
             medalStyle
               ? `bg-gradient-to-r ${medalStyle.background}`
               : "bg-gradient-to-r from-gray-50 to-white"
           }`}
         >
           <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="text-xl font-bold text-gray-800">
-              {player.name}
-            </span>
             {medalStyle && (
               <Crown
                 className={`h-5 w-5`}
                 style={{ color: medalStyle.crown }}
               />
             )}
+            <span className="text-xl font-bold text-gray-800">
+              {player.name}
+            </span>
           </div>
           <div className="text-sm font-medium text-gray-600">
             Score: {player.score}
@@ -708,8 +708,7 @@ const PokemonCardGen = () => {
                 size="icon"
                 className="hover:bg-gray-200 h-7 w-7"
               >
-                <Copy className="h-4 w-4 text-white" />{" "}
-                {/* Fixed text color */}
+                <Copy className="h-4 w-4 text-white" />
               </Button>
             </div>
           </div>
@@ -875,7 +874,15 @@ const PokemonCardGen = () => {
                 return (
                   <div
                     key={player.id}
-                    className={`text-center ${!isActive ? "opacity-50" : ""}`}
+                    className={`text-center ${
+                      gameOver
+                        ? isWinner
+                          ? "" // Winners get full opacity when game is over
+                          : "opacity-50" // Non-winners get faded
+                        : !isActive
+                        ? "opacity-50" // Original logic during normal play
+                        : ""
+                    }`}
                   >
                     <PlayerScore
                       player={player}
