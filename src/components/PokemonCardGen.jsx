@@ -85,6 +85,9 @@ const PokemonCardGen = () => {
   const [playerName, setPlayerName] = useState("");
   const [joinCode, setJoinCode] = useState("");
 
+  const [nextRoundTimeout, setNextRoundTimeout] = useState(30);
+  const [isWaitingForNextRound, setIsWaitingForNextRound] = useState(false);
+
   useEffect(() => {
     // Set up socket listeners
     socket.on("error", (message) => {
@@ -185,6 +188,8 @@ const PokemonCardGen = () => {
         // winners: [] // clear winners at new round start
       }));
       setGamePhase("playing");
+      setIsWaitingForNextRound(false);
+      setNextRoundTimeout(30);
     });
 
     socket.on("roundComplete", ({ gameWinners, stat, players, gameEnded }) => {
@@ -193,8 +198,10 @@ const PokemonCardGen = () => {
         winners: gameWinners,
         selectedStat: stat,
         players,
-        gameEnded: gameEnded, // Update from server
+        gameEnded: gameEnded,
       }));
+      setIsWaitingForNextRound(true);
+      setNextRoundTimeout(30);
     });
 
     socket.on("gameReset", () => {
@@ -229,6 +236,24 @@ const PokemonCardGen = () => {
       socket.off("gameStateUpdate");
     };
   }, []);
+
+  useEffect(() => {
+    let intervalId;
+    if (isWaitingForNextRound) {
+      intervalId = setInterval(() => {
+        setNextRoundTimeout((prev) => {
+          if (prev <= 1) {
+            setIsWaitingForNextRound(false);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isWaitingForNextRound]);
 
   const handleNameSubmit = (e) => {
     e.preventDefault();
@@ -870,6 +895,27 @@ const PokemonCardGen = () => {
                 );
               })}
             </div>
+
+            {isWaitingForNextRound && !gameOver && (
+              <div className="mt-4 text-center">
+                {gameState.currentPicker === gameState.myId ? (
+                  <Button
+                    onClick={() => {
+                      socket.emit("nextRound", {
+                        roomCode: gameState.roomCode,
+                      });
+                    }}
+                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
+                  >
+                    Next Round ({nextRoundTimeout}s)
+                  </Button>
+                ) : (
+                  <p className="text-white">
+                    Next round starting in {nextRoundTimeout} seconds...
+                  </p>
+                )}
+              </div>
+            )}
 
             {gameOver && (
               <div className="flex gap-4 justify-center mt-8">
