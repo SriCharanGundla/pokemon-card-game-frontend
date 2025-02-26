@@ -126,6 +126,52 @@ const PokemonCardGen = () => {
       toast.success(`${newPlayer.name} joined the room`);
     });
 
+    socket.on("playerReconnected", ({ players }) => {
+      setGameState((state) => ({
+        ...state,
+        players,
+      }));
+      toast.success("Player reconnected");
+    });
+
+    socket.on(
+      "creatorTransferred",
+      ({ previousCreatorId, newCreatorId, players }) => {
+        setGameState((state) => ({
+          ...state,
+          players,
+        }));
+
+        // Get the names for a better user message
+        const previousCreator = players.find(
+          (p) => p.id === previousCreatorId
+        )?.name;
+        const newCreator = players.find((p) => p.id === newCreatorId)?.name;
+
+        toast.success(
+          `${previousCreator} transferred admin rights to ${newCreator}`
+        );
+      }
+    );
+
+    // Update the playerLeft listener to handle creator reassignment
+    socket.off("playerLeft"); // Remove existing listener
+    socket.on("playerLeft", ({ players, leftPlayer, newCreatorId }) => {
+      setGameState((state) => ({ ...state, players }));
+
+      if (leftPlayer) {
+        toast.info(`${leftPlayer.name} left the room`);
+      }
+
+      // If there was a creator change
+      if (newCreatorId) {
+        const newCreatorName = players.find((p) => p.id === newCreatorId)?.name;
+        if (newCreatorName) {
+          toast.info(`${newCreatorName} is now the admin`);
+        }
+      }
+    });
+
     socket.on("roundStarted", (newGameState) => {
       setGameState((state) => ({
         ...state,
@@ -173,6 +219,8 @@ const PokemonCardGen = () => {
       socket.off("connect");
       socket.off("roomCreated");
       socket.off("playerJoined");
+      socket.off("playerReconnected");
+      socket.off("creatorTransferred");
       socket.off("roundStarted");
       socket.off("roundComplete");
       socket.off("gameReset");
@@ -283,6 +331,13 @@ const PokemonCardGen = () => {
     socket.emit("updateSettings", {
       roomCode: gameState.roomCode,
       settings: { [setting]: value },
+    });
+  };
+
+  const transferAdmin = (newAdminId) => {
+    socket.emit("transferCreator", {
+      roomCode: gameState.roomCode,
+      newCreatorId: newAdminId,
     });
   };
 
@@ -650,6 +705,18 @@ const PokemonCardGen = () => {
                       <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
                         Gym Leader
                       </span>
+                    )}
+                    {/* Add admin transfer button */}
+                    {isCreator && player.id !== gameState.myId && (
+                      <Button
+                        onClick={() => transferAdmin(player.id)}
+                        size="icon"
+                        variant="outline"
+                        className="p-2 rounded-full text-white hover:text-gray-200"
+                        title="Transfer Admin Privileges"
+                      >
+                        <Crown className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
                 ))}
