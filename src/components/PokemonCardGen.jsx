@@ -180,6 +180,7 @@ const PokemonCardGen = () => {
         players: newGameState.players,
         gameStatus: "playing",
         selectedStat: null,
+        gameEnded: newGameState.gameEnded,
         // Remove or comment out the following line:
         // winners: [] // clear winners at new round start
       }));
@@ -293,8 +294,10 @@ const PokemonCardGen = () => {
       gameStatus: "setup",
       winners: [],
       selectedStat: null,
+      gameEnded: false, // Explicitly reset gameEnded
       gameSettings: {
         roundsToWin: 3,
+        maxWinners: 1,
       },
     }));
     setGamePhase("room-choice");
