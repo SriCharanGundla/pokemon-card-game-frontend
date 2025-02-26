@@ -192,16 +192,9 @@ const PokemonCardGen = () => {
       toast.error("Connecting to server... please wait");
       return;
     }
-    socket.emit("checkName", trimmedName, (exists) => {
-      if (exists) {
-        toast.error("This name is already taken");
-        return;
-      } else {
-        socket.emit("addName", trimmedName, () => {
-          setGamePhase("room-choice");
-        });
-      }
-    });
+
+    // Simply move to room choice since we'll check the name when joining/creating rooms
+    setGamePhase("room-choice");
   };
 
   const createRoom = () => {
