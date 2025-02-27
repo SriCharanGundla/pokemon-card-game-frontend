@@ -1,36 +1,14 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Crown, Copy } from "lucide-react";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 import PropTypes from "prop-types";
 import CountdownTimer from "./CountdownTimer";
+import PokemonCard from "./PokemonCard";
 
 const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 const socket = io(socketUrl);
-
-// Add Pokemon type colors
-const typeColors = {
-  normal: "#A8A878",
-  fire: "#F08030",
-  water: "#6890F0",
-  electric: "#F8D030",
-  grass: "#78C850",
-  ice: "#98D8D8",
-  fighting: "#C03028",
-  poison: "#A040A0",
-  ground: "#E0C068",
-  flying: "#A890F0",
-  psychic: "#F85888",
-  bug: "#A8B820",
-  rock: "#B8A038",
-  ghost: "#705898",
-  dragon: "#7038F8",
-  dark: "#705848",
-  steel: "#B8B8D0",
-  fairy: "#EE99AC",
-};
 
 const medalColors = {
   gold: {
@@ -45,24 +23,6 @@ const medalColors = {
     crown: "#CD7F32",
     background: "from-orange-100 to-orange-50",
   },
-};
-
-const PokemonCardPropTypes = {
-  pokemon: PropTypes.shape({
-    name: PropTypes.string.isRequired,
-    sprite: PropTypes.string.isRequired,
-    hp: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-    stats: PropTypes.shape({
-      attack: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
-        .isRequired,
-      defense: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
-        .isRequired,
-      speed: PropTypes.oneOfType([PropTypes.number, PropTypes.string])
-        .isRequired,
-    }).isRequired,
-  }).isRequired,
-  isRevealed: PropTypes.bool.isRequired,
-  isPicker: PropTypes.bool.isRequired,
 };
 
 const PokemonCardGen = () => {
@@ -391,106 +351,6 @@ const PokemonCardGen = () => {
     });
   };
 
-  // In the playing phase, cards are revealed if a stat is selected or if winners exist.
-  const PokemonCard = ({ pokemon, isRevealed, isPicker }) => {
-    if (!pokemon) return null;
-
-    const displayPokemon = isRevealed
-      ? pokemon
-      : {
-          ...pokemon,
-          sprite: "/pokeball.png",
-          name: "???",
-          hp: "?",
-          stats: { attack: "?", defense: "?", speed: "?" },
-          type: "normal", // Default type for card back
-        };
-
-    const typeColor =
-      typeColors[displayPokemon.type?.toLowerCase() || "normal"];
-
-    return (
-      <Card className="w-72 bg-white rounded-xl shadow-xl overflow-hidden transform transition-transform duration-200 hover:scale-105">
-        <div className="relative">
-          {/* Type-based background bubble */}
-          <div
-            className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full opacity-30"
-            style={{ backgroundColor: typeColor }}
-          />
-
-          {/* HP Badge */}
-          {/* <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg">
-            <span className="text-sm font-bold text-gray-800">HP</span>
-            <span className="ml-1 text-lg font-bold text-indigo-600">
-              {displayPokemon.hp}
-            </span>
-          </div> */}
-
-          {/* Pokemon Image */}
-          <div className="relative h-48 flex items-center justify-center">
-            <img
-              src={displayPokemon.sprite}
-              alt={displayPokemon.name}
-              className={`h-40 ${
-                isRevealed ? "object-contain" : "object-cover opacity-70 mt-12"
-              }`}
-            />
-          </div>
-        </div>
-
-        <CardHeader className="text-xl font-bold text-center capitalize py-2 bg-gradient-to-r from-gray-50 to-white">
-          {displayPokemon.name}
-        </CardHeader>
-
-        <CardContent className="p-4 py-0">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              {
-                key: "hp",
-                label: "HP",
-                value: displayPokemon.hp,
-                color: "red",
-              },
-              {
-                key: "attack",
-                label: "ATK",
-                value: displayPokemon.stats.attack,
-                color: "orange",
-              },
-              {
-                key: "defense",
-                label: "DEF",
-                value: displayPokemon.stats.defense,
-                color: "blue",
-              },
-              {
-                key: "speed",
-                label: "SPD",
-                value: displayPokemon.stats.speed,
-                color: "green",
-              },
-            ].map(({ key, label, value }) => (
-              <Button
-                key={key}
-                onClick={() => handleStatSelect(key)}
-                disabled={!isPicker || gameState.selectedStat}
-                className={`relative overflow-hidden transition-all duration-200 shadow`}
-                style={{
-                  backgroundColor: "white",
-                }}
-              >
-                <div className={`text-xl font-bold text-black`}>{value}</div>
-                <div className={`text-sm text-black`}>{label}</div>
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  PokemonCard.propTypes = PokemonCardPropTypes;
-
   // Separate controlled input handlers
   const handleNameChange = (e) => {
     e.preventDefault(); // Prevent any default browser behavior
@@ -527,7 +387,7 @@ const PokemonCardGen = () => {
   // Modified PageContainer to take full width/height on all device sizes
   const PageContainer = ({ children, className = "" }) => (
     <div
-      className={`fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center p-4 ${className} overflow-y-auto`}
+      className={`fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center ${className} overflow-y-auto`}
     >
       <div className="w-full max-w-md">{children}</div>
     </div>
@@ -714,139 +574,141 @@ const PokemonCardGen = () => {
 
     return (
       <PageContainer>
-        <div className="bg-white rounded-lg shadow-2xl p-8 mt-16">
-          <div className="text-center mb-6">
-            <img
-              src="/pokeball.png"
-              alt="Pokeball"
-              className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
-            />
-            <h2 className="text-2xl font-bold mb-2">Battle Room</h2>
-            <div className="flex items-center justify-center gap-2 bg-gray-100 py-2 px-4 rounded-lg mx-6">
-              <span className="font-medium">
-                Room Code: {gameState.roomCode}
-              </span>
-              <Button
-                onClick={copyRoomCode}
-                variant="outline"
-                size="icon"
-                className="hover:bg-gray-200 h-7 w-7"
-              >
-                <Copy className="h-4 w-4 text-white" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-bold text-lg mb-3">Trainers:</h3>
-              <div className="space-y-2">
-                {gameState.players.map((player) => (
-                  <div
-                    key={player.id}
-                    className="flex items-center justify-between gap-2 py-3 px-4 bg-gray-50 rounded-lg border border-gray-200"
-                  >
-                    <div className="flex items-center gap-2">
-                      <img
-                        src="/trainer.png"
-                        alt="Trainer"
-                        className="w-8 h-8"
-                      />
-                      <span className="font-medium">{player.name}</span>
-                      {!player.isBackInRoom && (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                          Still in last game...
-                        </span>
-                      )}
-                    </div>
-                    {player.isCreator && (
-                      <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                        Gym Leader
-                      </span>
-                    )}
-                    {/* Add admin transfer button */}
-                    {isCreator && player.id !== gameState.myId && (
-                      <Button
-                        onClick={() => transferAdmin(player.id)}
-                        size="icon"
-                        variant="outline"
-                        className="p-2 rounded-full text-white hover:text-gray-300"
-                        title="Transfer Admin Privileges"
-                      >
-                        <Crown className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {isCreator && gameState.players.length > 1 && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Rounds to Win Championship:
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={gameState.gameSettings.roundsToWin}
-                    onChange={(e) => {
-                      const value = Math.max(
-                        1,
-                        Math.min(10, parseInt(e.target.value) || 1)
-                      );
-                      updateRoundsToWin({ target: { value } });
-                    }}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Number of Winners (max {maxAllowedWinners}):
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max={maxAllowedWinners}
-                    value={Math.min(
-                      gameState.gameSettings.maxWinners,
-                      maxAllowedWinners
-                    )}
-                    onChange={(e) => {
-                      const value = Math.max(
-                        1,
-                        Math.min(
-                          maxAllowedWinners,
-                          parseInt(e.target.value) || 1
-                        )
-                      );
-                      updateGameSettings("maxWinners", value);
-                    }}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    Maximum winners is limited by player count
-                  </p>
-                </div>
+        <div className="min-h-screen py-10 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-h-[85vh] overflow-y-auto custom-scrollbar">
+            <div className="text-center mb-6 flex flex-col justify-center items-center">
+              <img
+                src="/pokeball.png"
+                alt="Pokeball"
+                className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
+              />
+              <h2 className="text-2xl font-bold mb-2">Battle Room</h2>
+              <div className="flex items-center justify-center gap-2 bg-gray-100 py-2 px-4 rounded-lg mx-6 w-fit">
+                <span className="font-medium">
+                  Room Code: {gameState.roomCode}
+                </span>
                 <Button
-                  onClick={startGame}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg ..."
-                  disabled={!allPlayersAreBack} // Disable if not all back
+                  onClick={copyRoomCode}
+                  variant="outline"
+                  size="icon"
+                  className="hover:bg-gray-200 h-7 w-7"
                 >
-                  Start Battle!
+                  <Copy className="h-4 w-4 text-white" />
                 </Button>
               </div>
-            )}
+            </div>
 
-            <Button
-              onClick={handleLeaveRoom}
-              variant="destructive"
-              className="w-full py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
-            >
-              Leave Room
-            </Button>
+            <div className="space-y-6">
+              <div>
+                <h3 className="font-bold text-lg mb-3">Trainers:</h3>
+                <div className="space-y-2">
+                  {gameState.players.map((player) => (
+                    <div
+                      key={player.id}
+                      className="flex items-center justify-between gap-2 py-3 px-4 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div className="flex items-center gap-2">
+                        <img
+                          src="/trainer.png"
+                          alt="Trainer"
+                          className="w-8 h-8"
+                        />
+                        <span className="font-medium">{player.name}</span>
+                        {!player.isBackInRoom && (
+                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                            Still in last game...
+                          </span>
+                        )}
+                      </div>
+                      {player.isCreator && (
+                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                          Gym Leader
+                        </span>
+                      )}
+                      {/* Add admin transfer button */}
+                      {isCreator && player.id !== gameState.myId && (
+                        <Button
+                          onClick={() => transferAdmin(player.id)}
+                          size="icon"
+                          variant="outline"
+                          className="p-2 rounded-full text-white hover:text-gray-300"
+                          title="Transfer Admin Privileges"
+                        >
+                          <Crown className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {isCreator && gameState.players.length > 1 && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Rounds to Win Championship:
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={gameState.gameSettings.roundsToWin}
+                      onChange={(e) => {
+                        const value = Math.max(
+                          1,
+                          Math.min(10, parseInt(e.target.value) || 1)
+                        );
+                        updateRoundsToWin({ target: { value } });
+                      }}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Number of Winners (max {maxAllowedWinners}):
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max={maxAllowedWinners}
+                      value={Math.min(
+                        gameState.gameSettings.maxWinners,
+                        maxAllowedWinners
+                      )}
+                      onChange={(e) => {
+                        const value = Math.max(
+                          1,
+                          Math.min(
+                            maxAllowedWinners,
+                            parseInt(e.target.value) || 1
+                          )
+                        );
+                        updateGameSettings("maxWinners", value);
+                      }}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Maximum winners is limited by player count
+                    </p>
+                  </div>
+                  <Button
+                    onClick={startGame}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg ..."
+                    disabled={!allPlayersAreBack} // Disable if not all back
+                  >
+                    Start Battle!
+                  </Button>
+                </div>
+              )}
+
+              <Button
+                onClick={handleLeaveRoom}
+                variant="destructive"
+                className="w-full py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+              >
+                Leave Room
+              </Button>
+            </div>
           </div>
         </div>
       </PageContainer>
@@ -859,7 +721,7 @@ const PokemonCardGen = () => {
     const inTieBreaker = gameState.inTieBreaker;
 
     return (
-      <div className="fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 overflow-auto">
+      <div className="fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 overflow-y-auto custom-scrollbar">
         <div className="max-w-6xl mx-auto py-1 px-6">
           <div className="bg-white rounded-lg shadow-2xl p-6 mb-8">
             <div className="text-center mb-6">
@@ -894,41 +756,41 @@ const PokemonCardGen = () => {
 
             <div className="flex flex-wrap gap-8 justify-center">
               {gameState.players.map((player) => {
-                const winnerIndex = gameState.winners.indexOf(player.id);
-                const isWinner = winnerIndex !== -1;
-                const isActive =
-                  !isWinner &&
-                  (!inTieBreaker ||
-                    gameState.tieBreakPlayers.includes(player.id));
+                const isMyCard = player.id === gameState.myId;
+                const isPickerCard = player.id === gameState.currentPicker;
+                // Only show full opacity if the card belongs to the current user or the picker.
+                const isRevealed =
+                  player.id === gameState.myId ||
+                  gameState.selectedStat ||
+                  gameOver ||
+                  gameState.winners.includes(player.id);
+
+                const cardOpacity =
+                  isMyCard || isPickerCard || isRevealed
+                    ? "opacity-100"
+                    : "opacity-50";
 
                 return (
-                  <div
-                    key={player.id}
-                    className={`text-center ${
-                      gameOver
-                        ? isWinner
-                          ? "" // Winners get full opacity when game is over
-                          : "opacity-50" // Non-winners get faded
-                        : !isActive
-                        ? "opacity-50" // Original logic during normal play
-                        : ""
-                    }`}
-                  >
+                  <div key={player.id} className={`text-center ${cardOpacity}`}>
                     <PlayerScore
                       player={player}
-                      winnerRank={isWinner ? winnerIndex : undefined}
+                      winnerRank={
+                        gameState.winners.indexOf(player.id) !== -1
+                          ? gameState.winners.indexOf(player.id)
+                          : undefined
+                      }
                     />
                     <PokemonCard
                       pokemon={player.pokemon}
-                      isRevealed={
-                        player.id === gameState.myId ||
-                        gameState.selectedStat ||
-                        gameOver ||
-                        isWinner
-                      }
+                      isRevealed={isRevealed}
                       isPicker={
-                        player.id === gameState.currentPicker && !isWinner
+                        player.id === gameState.currentPicker &&
+                        !gameState.winners.includes(player.id)
                       }
+                      selectedStat={gameState.selectedStat}
+                      onStatSelect={handleStatSelect}
+                      isWinner={gameState.winners.includes(player.id)}
+                      gameOver={gameOver}
                     />
                   </div>
                 );
