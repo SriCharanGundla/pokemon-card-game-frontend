@@ -5,6 +5,7 @@ import { Crown, Copy } from "lucide-react";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 import PropTypes from "prop-types";
+import CountdownTimer from "./CountdownTimer";
 
 const socketUrl = import.meta.env.VITE_SOCKET_URL || "http://localhost:3001";
 const socket = io(socketUrl);
@@ -85,7 +86,7 @@ const PokemonCardGen = () => {
   const [playerName, setPlayerName] = useState("");
   const [joinCode, setJoinCode] = useState("");
 
-  const [nextRoundTimeout, setNextRoundTimeout] = useState(30);
+  // const [nextRoundTimeout, setNextRoundTimeout] = useState(30);
   const [isWaitingForNextRound, setIsWaitingForNextRound] = useState(false);
 
   useEffect(() => {
@@ -189,7 +190,7 @@ const PokemonCardGen = () => {
       }));
       setGamePhase("playing");
       setIsWaitingForNextRound(false);
-      setNextRoundTimeout(30);
+      // setNextRoundTimeout(30);
     });
 
     socket.on("roundComplete", ({ gameWinners, stat, players, gameEnded }) => {
@@ -201,7 +202,7 @@ const PokemonCardGen = () => {
         gameEnded: gameEnded,
       }));
       setIsWaitingForNextRound(true);
-      setNextRoundTimeout(30);
+      // setNextRoundTimeout(30);
     });
 
     socket.on("gameReset", () => {
@@ -237,23 +238,38 @@ const PokemonCardGen = () => {
     };
   }, []);
 
+  // useEffect(() => {
+  //   let intervalId;
+  //   if (isWaitingForNextRound) {
+  //     intervalId = setInterval(() => {
+  //       setNextRoundTimeout((prev) => {
+  //         if (prev <= 1) {
+  //           setIsWaitingForNextRound(false);
+  //           return 30;
+  //         }
+  //         return prev - 1;
+  //       });
+  //     }, 1000);
+  //   }
+  //   return () => {
+  //     if (intervalId) clearInterval(intervalId);
+  //   };
+  // }, [isWaitingForNextRound]);
+
   useEffect(() => {
-    let intervalId;
-    if (isWaitingForNextRound) {
-      intervalId = setInterval(() => {
-        setNextRoundTimeout((prev) => {
-          if (prev <= 1) {
-            setIsWaitingForNextRound(false);
-            return 30;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+    socket.on("playerStatusUpdate", ({ id, isBackInRoom }) => {
+      setGameState((state) => ({
+        ...state,
+        players: state.players.map((player) =>
+          player.id === id ? { ...player, isBackInRoom } : player
+        ),
+      }));
+    });
+
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      socket.off("playerStatusUpdate");
     };
-  }, [isWaitingForNextRound]);
+  }, []);
 
   const handleNameSubmit = (e) => {
     e.preventDefault();
@@ -329,7 +345,13 @@ const PokemonCardGen = () => {
   };
 
   const goBackToRoom = () => {
+    // Let the server know we’re back
+    socket.emit("playerBackToRoom", {
+      roomCode: gameState.roomCode,
+    });
+    // Locally reset some things
     resetGameState();
+    // Optionally set the local phase; or rely on the server’s gameStateUpdate
     setGamePhase("in-room");
   };
 
@@ -615,7 +637,7 @@ const PokemonCardGen = () => {
           </div>
           <div className="mt-6 text-center">
             <p className="text-white text-sm">
-              Ready to become a Pokémon Master?
+              Ready to become a Pokémon Master?
             </p>
           </div>
         </div>
@@ -688,6 +710,8 @@ const PokemonCardGen = () => {
     const playerCount = gameState.players.length;
     const maxAllowedWinners = Math.min(playerCount - 1, 3);
 
+    const allPlayersAreBack = gameState.players.every((p) => p.isBackInRoom);
+
     return (
       <PageContainer>
         <div className="bg-white rounded-lg shadow-2xl p-8 mt-16">
@@ -729,6 +753,11 @@ const PokemonCardGen = () => {
                         className="w-8 h-8"
                       />
                       <span className="font-medium">{player.name}</span>
+                      {!player.isBackInRoom && (
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                          Still in last game...
+                        </span>
+                      )}
                     </div>
                     {player.isCreator && (
                       <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
@@ -803,7 +832,8 @@ const PokemonCardGen = () => {
                 </div>
                 <Button
                   onClick={startGame}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
+                  className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg ..."
+                  disabled={!allPlayersAreBack} // Disable if not all back
                 >
                   Start Battle!
                 </Button>
@@ -916,11 +946,21 @@ const PokemonCardGen = () => {
                     }}
                     className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
                   >
-                    Next Round ({nextRoundTimeout}s)
+                    Next Round (
+                    <CountdownTimer
+                      initialCount={30}
+                      onComplete={() => setIsWaitingForNextRound(false)}
+                    />
+                    s)
                   </Button>
                 ) : (
                   <p className="text-white">
-                    Next round starting in {nextRoundTimeout} seconds...
+                    Next round starting in{" "}
+                    <CountdownTimer
+                      initialCount={30}
+                      onComplete={() => setIsWaitingForNextRound(false)}
+                    />{" "}
+                    seconds...
                   </p>
                 )}
               </div>
