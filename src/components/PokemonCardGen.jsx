@@ -700,7 +700,6 @@ const PokemonCardGen = () => {
   if (gamePhase === "playing") {
     const gameOver = gameState.gameEnded;
     const inTieBreaker = gameState.inTieBreaker;
-
     const handleNextRound = () => {
       socket.emit("nextRound", { roomCode: gameState.roomCode });
     };
@@ -725,6 +724,17 @@ const PokemonCardGen = () => {
                     : `Round ${gameState.currentRound}`}
                 </div>
               </div>
+              {/* New Tie-break information message */}
+              {inTieBreaker && (
+                <div className="text-center mt-2">
+                  <p className="text-xl text-red-600 font-bold">
+                    Tie-break round in progress!
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    Only players tied in the previous round are competing.
+                  </p>
+                </div>
+              )}
               {isWaitingForNextRound && (
                 <div className="absolute right-0 top-0">
                   {gameState.currentPicker === gameState.myId ? (
@@ -758,7 +768,7 @@ const PokemonCardGen = () => {
               )}
             </div>
 
-            {/* Cards & rest of layout below – remove the old next round block from here */}
+            {/* Cards & rest of layout below */}
             <div className="flex flex-wrap gap-8 justify-center">
               {gameState.players.map((player) => {
                 const isMyCard = player.id === gameState.myId;
