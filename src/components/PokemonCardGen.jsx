@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Crown, Copy } from "lucide-react";
+import { Crown, Copy, SkipForward } from "lucide-react";
 import { io } from "socket.io-client";
 import { toast } from "sonner";
 import PropTypes from "prop-types";
@@ -145,6 +145,7 @@ const PokemonCardGen = () => {
         gameStatus: "playing",
         selectedStat: null,
         gameEnded: newGameState.gameEnded,
+        roundWinners: [], // Clear round winners when a new round starts
         // Remove or comment out the following line:
         // winners: [] // clear winners at new round start
       }));
@@ -153,17 +154,21 @@ const PokemonCardGen = () => {
       // setNextRoundTimeout(30);
     });
 
-    socket.on("roundComplete", ({ gameWinners, stat, players, gameEnded }) => {
-      setGameState((state) => ({
-        ...state,
-        winners: gameWinners,
-        selectedStat: stat,
-        players,
-        gameEnded: gameEnded,
-      }));
-      setIsWaitingForNextRound(true);
-      // setNextRoundTimeout(30);
-    });
+    socket.on(
+      "roundComplete",
+      ({ roundWinners, gameWinners, stat, players, gameEnded }) => {
+        setGameState((state) => ({
+          ...state,
+          roundWinners, // store round winners here
+          winners: gameWinners,
+          selectedStat: stat,
+          players,
+          gameEnded: gameEnded,
+        }));
+        setIsWaitingForNextRound(true);
+        // setNextRoundTimeout(30);
+      }
+    );
 
     socket.on("gameReset", () => {
       setGameState((state) => ({
@@ -197,24 +202,6 @@ const PokemonCardGen = () => {
       socket.off("gameStateUpdate");
     };
   }, []);
-
-  // useEffect(() => {
-  //   let intervalId;
-  //   if (isWaitingForNextRound) {
-  //     intervalId = setInterval(() => {
-  //       setNextRoundTimeout((prev) => {
-  //         if (prev <= 1) {
-  //           setIsWaitingForNextRound(false);
-  //           return 30;
-  //         }
-  //         return prev - 1;
-  //       });
-  //     }, 1000);
-  //   }
-  //   return () => {
-  //     if (intervalId) clearInterval(intervalId);
-  //   };
-  // }, [isWaitingForNextRound]);
 
   useEffect(() => {
     socket.on("playerStatusUpdate", ({ id, isBackInRoom }) => {
@@ -384,23 +371,8 @@ const PokemonCardGen = () => {
     }));
   };
 
-  // Modified PageContainer to take full width/height on all device sizes
-  const PageContainer = ({ children, className = "" }) => (
-    <div
-      className={`fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center ${className} overflow-y-auto`}
-    >
-      <div className="w-full max-w-md">{children}</div>
-    </div>
-  );
-
-  // Added propTypes for PageContainer
-  PageContainer.propTypes = {
-    children: PropTypes.node.isRequired,
-    className: PropTypes.string,
-  };
-
   // Modified player display component
-  const PlayerScore = ({ player, winnerRank }) => {
+  const PlayerScore = ({ player, winnerRank, isRoundWinner }) => {
     let medalStyle = null;
     if (winnerRank === 0) {
       medalStyle = medalColors.gold;
@@ -417,12 +389,19 @@ const PokemonCardGen = () => {
             medalStyle
               ? `bg-gradient-to-r ${medalStyle.background}`
               : "bg-gradient-to-r from-gray-50 to-white"
+          } ${
+            isRoundWinner &&
+            winnerRank !== 0 &&
+            winnerRank !== 1 &&
+            winnerRank !== 2
+              ? "shadow-md shadow-slate-800/50"
+              : ""
           }`}
         >
           <div className="flex items-center justify-center gap-2 mb-1">
             {medalStyle && (
               <Crown
-                className={`h-5 w-5`}
+                className={"h-5 w-5"}
                 style={{ color: medalStyle.crown }}
               />
             )}
@@ -446,6 +425,7 @@ const PokemonCardGen = () => {
         .isRequired,
     }).isRequired,
     winnerRank: PropTypes.number,
+    isRoundWinner: PropTypes.bool,
   };
 
   // ---------- Render Phases ----------
@@ -561,7 +541,6 @@ const PokemonCardGen = () => {
       </div>
     );
   }
-
   // 3. In-Room Phase (Waiting Room)
   if (gamePhase === "in-room") {
     const isCreator = gameState.players.find(
@@ -573,145 +552,147 @@ const PokemonCardGen = () => {
     const allPlayersAreBack = gameState.players.every((p) => p.isBackInRoom);
 
     return (
-      <PageContainer>
-        <div className="min-h-screen py-10 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-h-[85vh] overflow-y-auto custom-scrollbar">
-            <div className="text-center mb-6 flex flex-col justify-center items-center">
-              <img
-                src="/pokeball.png"
-                alt="Pokeball"
-                className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
-              />
-              <h2 className="text-2xl font-bold mb-2">Battle Room</h2>
-              <div className="flex items-center justify-center gap-2 bg-gray-100 py-2 px-4 rounded-lg mx-6 w-fit">
-                <span className="font-medium">
-                  Room Code: {gameState.roomCode}
-                </span>
+      <div className="fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 flex items-center justify-center overflow-y-auto">
+        <div className="w-full max-w-md">
+          <div className="min-h-screen py-10 flex items-center justify-center">
+            <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-h-[85vh] overflow-y-auto custom-scrollbar">
+              <div className="text-center mb-6 flex flex-col justify-center items-center">
+                <img
+                  src="/pokeball.png"
+                  alt="Pokeball"
+                  className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
+                />
+                <h2 className="text-2xl font-bold mb-2">Battle Room</h2>
+                <div className="flex items-center justify-center gap-2 bg-gray-100 py-2 px-4 rounded-lg mx-6 w-fit">
+                  <span className="font-medium">
+                    Room Code: {gameState.roomCode}
+                  </span>
+                  <Button
+                    onClick={copyRoomCode}
+                    variant="outline"
+                    size="icon"
+                    className="hover:bg-gray-200 h-7 w-7"
+                  >
+                    <Copy className="h-4 w-4 text-white" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-bold text-lg mb-3">Trainers:</h3>
+                  <div className="space-y-2">
+                    {gameState.players.map((player) => (
+                      <div
+                        key={player.id}
+                        className="flex items-center justify-between gap-2 py-3 px-4 bg-gray-50 rounded-lg border border-gray-200"
+                      >
+                        <div className="flex items-center gap-2">
+                          <img
+                            src="/trainer.png"
+                            alt="Trainer"
+                            className="w-8 h-8"
+                          />
+                          <span className="font-medium">{player.name}</span>
+                          {!player.isBackInRoom && (
+                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                              Still in last game...
+                            </span>
+                          )}
+                        </div>
+                        {player.isCreator && (
+                          <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
+                            Gym Leader
+                          </span>
+                        )}
+                        {/* Add admin transfer button */}
+                        {isCreator && player.id !== gameState.myId && (
+                          <Button
+                            onClick={() => transferAdmin(player.id)}
+                            size="icon"
+                            variant="outline"
+                            className="p-2 rounded-full text-white hover:text-gray-300"
+                            title="Transfer Admin Privileges"
+                          >
+                            <Crown className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {isCreator && gameState.players.length > 1 && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Rounds to Win Championship:
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={gameState.gameSettings.roundsToWin}
+                        onChange={(e) => {
+                          const value = Math.max(
+                            1,
+                            Math.min(10, parseInt(e.target.value) || 1)
+                          );
+                          updateRoundsToWin({ target: { value } });
+                        }}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Number of Winners (max {maxAllowedWinners}):
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={maxAllowedWinners}
+                        value={Math.min(
+                          gameState.gameSettings.maxWinners,
+                          maxAllowedWinners
+                        )}
+                        onChange={(e) => {
+                          const value = Math.max(
+                            1,
+                            Math.min(
+                              maxAllowedWinners,
+                              parseInt(e.target.value) || 1
+                            )
+                          );
+                          updateGameSettings("maxWinners", value);
+                        }}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
+                      />
+                      <p className="text-sm text-gray-500 mt-1">
+                        Maximum winners is limited by player count
+                      </p>
+                    </div>
+                    <Button
+                      onClick={startGame}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg ..."
+                      disabled={!allPlayersAreBack} // Disable if not all back
+                    >
+                      Start Battle!
+                    </Button>
+                  </div>
+                )}
+
                 <Button
-                  onClick={copyRoomCode}
-                  variant="outline"
-                  size="icon"
-                  className="hover:bg-gray-200 h-7 w-7"
+                  onClick={handleLeaveRoom}
+                  variant="destructive"
+                  className="w-full py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
                 >
-                  <Copy className="h-4 w-4 text-white" />
+                  Leave Room
                 </Button>
               </div>
             </div>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-bold text-lg mb-3">Trainers:</h3>
-                <div className="space-y-2">
-                  {gameState.players.map((player) => (
-                    <div
-                      key={player.id}
-                      className="flex items-center justify-between gap-2 py-3 px-4 bg-gray-50 rounded-lg border border-gray-200"
-                    >
-                      <div className="flex items-center gap-2">
-                        <img
-                          src="/trainer.png"
-                          alt="Trainer"
-                          className="w-8 h-8"
-                        />
-                        <span className="font-medium">{player.name}</span>
-                        {!player.isBackInRoom && (
-                          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
-                            Still in last game...
-                          </span>
-                        )}
-                      </div>
-                      {player.isCreator && (
-                        <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                          Gym Leader
-                        </span>
-                      )}
-                      {/* Add admin transfer button */}
-                      {isCreator && player.id !== gameState.myId && (
-                        <Button
-                          onClick={() => transferAdmin(player.id)}
-                          size="icon"
-                          variant="outline"
-                          className="p-2 rounded-full text-white hover:text-gray-300"
-                          title="Transfer Admin Privileges"
-                        >
-                          <Crown className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {isCreator && gameState.players.length > 1 && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Rounds to Win Championship:
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={gameState.gameSettings.roundsToWin}
-                      onChange={(e) => {
-                        const value = Math.max(
-                          1,
-                          Math.min(10, parseInt(e.target.value) || 1)
-                        );
-                        updateRoundsToWin({ target: { value } });
-                      }}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Number of Winners (max {maxAllowedWinners}):
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max={maxAllowedWinners}
-                      value={Math.min(
-                        gameState.gameSettings.maxWinners,
-                        maxAllowedWinners
-                      )}
-                      onChange={(e) => {
-                        const value = Math.max(
-                          1,
-                          Math.min(
-                            maxAllowedWinners,
-                            parseInt(e.target.value) || 1
-                          )
-                        );
-                        updateGameSettings("maxWinners", value);
-                      }}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:ring focus:ring-red-200 transition-colors duration-200"
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      Maximum winners is limited by player count
-                    </p>
-                  </div>
-                  <Button
-                    onClick={startGame}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white py-4 rounded-lg ..."
-                    disabled={!allPlayersAreBack} // Disable if not all back
-                  >
-                    Start Battle!
-                  </Button>
-                </div>
-              )}
-
-              <Button
-                onClick={handleLeaveRoom}
-                variant="destructive"
-                className="w-full py-4 rounded-lg transform hover:scale-105 transition-all duration-200 font-bold"
-              >
-                Leave Room
-              </Button>
-            </div>
           </div>
         </div>
-      </PageContainer>
+      </div>
     );
   }
 
@@ -720,55 +701,80 @@ const PokemonCardGen = () => {
     const gameOver = gameState.gameEnded;
     const inTieBreaker = gameState.inTieBreaker;
 
+    const handleNextRound = () => {
+      socket.emit("nextRound", { roomCode: gameState.roomCode });
+    };
+
     return (
       <div className="fixed inset-0 bg-gradient-to-b from-red-600 to-red-700 overflow-y-auto custom-scrollbar">
         <div className="max-w-6xl mx-auto py-1 px-6">
           <div className="bg-white rounded-lg shadow-2xl p-6 mb-8">
-            <div className="text-center mb-6">
+            {/* Header with centered round text and next round button on right */}
+            <div className="relative mb-6">
               <img
                 src="/pokeball.png"
                 alt="Pokeball"
                 className="mx-auto mb-4 h-10 w-10 animate-spin-slow"
               />
-              <div className="text-2xl font-bold mb-2">
-                {gameOver
-                  ? "Game Over!"
-                  : inTieBreaker
-                  ? "Tie Breaker!"
-                  : `Round ${gameState.currentRound}`}
+              <div className="text-center">
+                <div className="text-2xl font-bold">
+                  {gameOver
+                    ? "Game Over!"
+                    : inTieBreaker
+                    ? "Tie Breaker!"
+                    : `Round ${gameState.currentRound}`}
+                </div>
               </div>
-              {!gameOver && (
-                <div className="text-gray-600">
-                  {inTieBreaker ? (
-                    <span>Tie breaker in progress for tied players...</span>
-                  ) : gameState.currentPicker === gameState.myId ? (
-                    "You're the picker! Select a stat to battle with."
+              {isWaitingForNextRound && (
+                <div className="absolute right-0 top-0">
+                  {gameState.currentPicker === gameState.myId ? (
+                    <Button
+                      onClick={handleNextRound}
+                      className="flex items-center space-x-2 shadow-md shadow-slate-800/50 bg-white/70 text-black rounded-full px-4 py-1 hover:ring-0"
+                      style={{ backgroundColor: "white" }}
+                    >
+                      <SkipForward className="h-5 w-5" />
+                      <span>
+                        <CountdownTimer
+                          initialCount={30}
+                          onComplete={() => setIsWaitingForNextRound(false)}
+                        />{" "}
+                        s
+                      </span>
+                    </Button>
                   ) : (
-                    `Waiting for ${
-                      gameState.players.find(
-                        (p) => p.id === gameState.currentPicker
-                      )?.name || "next player"
-                    } to choose...`
+                    <div className="flex items-center gap-2 space-x-2 bg-white/70 text-black rounded-full px-4 py-1">
+                      <SkipForward className="h-4 w-4" />
+                      <span>
+                        <CountdownTimer
+                          initialCount={30}
+                          onComplete={() => setIsWaitingForNextRound(false)}
+                        />{" "}
+                        s
+                      </span>
+                    </div>
                   )}
                 </div>
               )}
             </div>
 
+            {/* Cards & rest of layout below – remove the old next round block from here */}
             <div className="flex flex-wrap gap-8 justify-center">
               {gameState.players.map((player) => {
                 const isMyCard = player.id === gameState.myId;
                 const isPickerCard = player.id === gameState.currentPicker;
-                // Only show full opacity if the card belongs to the current user or the picker.
                 const isRevealed =
                   player.id === gameState.myId ||
                   gameState.selectedStat ||
                   gameOver ||
                   gameState.winners.includes(player.id);
-
                 const cardOpacity =
                   isMyCard || isPickerCard || isRevealed
                     ? "opacity-100"
                     : "opacity-50";
+                const isRoundWinner =
+                  gameState.roundWinners &&
+                  gameState.roundWinners.includes(player.id);
 
                 return (
                   <div key={player.id} className={`text-center ${cardOpacity}`}>
@@ -779,6 +785,7 @@ const PokemonCardGen = () => {
                           ? gameState.winners.indexOf(player.id)
                           : undefined
                       }
+                      isRoundWinner={isRoundWinner}
                     />
                     <PokemonCard
                       pokemon={player.pokemon}
@@ -796,37 +803,6 @@ const PokemonCardGen = () => {
                 );
               })}
             </div>
-
-            {isWaitingForNextRound && !gameOver && (
-              <div className="mt-4 text-center">
-                {gameState.currentPicker === gameState.myId ? (
-                  <Button
-                    onClick={() => {
-                      socket.emit("nextRound", {
-                        roomCode: gameState.roomCode,
-                      });
-                    }}
-                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
-                  >
-                    Next Round (
-                    <CountdownTimer
-                      initialCount={30}
-                      onComplete={() => setIsWaitingForNextRound(false)}
-                    />
-                    s)
-                  </Button>
-                ) : (
-                  <p className="text-white">
-                    Next round starting in{" "}
-                    <CountdownTimer
-                      initialCount={30}
-                      onComplete={() => setIsWaitingForNextRound(false)}
-                    />{" "}
-                    seconds...
-                  </p>
-                )}
-              </div>
-            )}
 
             {gameOver && (
               <div className="flex gap-4 justify-center mt-8">
